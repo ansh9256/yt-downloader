@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YT Grab — YouTube Downloader</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --card: #161616;
+    --border: #222222;
+    --red: #ff2d2d;
+    --red-glow: rgba(255,45,45,0.18);
+    --red-dim: #cc1a1a;
+    --text: #f0f0f0;
+    --muted: #666;
+    --success: #1db954;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* BG grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,45,45,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,45,45,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    width: 100%;
+    max-width: 760px;
+    padding: 60px 24px 0;
+    position: relative;
+    z-index: 1;
+    text-align: center;
+  }
+  .logo {
+    font-family: 'Bebas Neue', cursive;
+    font-size: clamp(56px, 12vw, 96px);
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, #fff 30%, var(--red));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+  .tagline {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 300;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .red-line {
+    width: 60px;
+    height: 3px;
+    background: var(--red);
+    margin: 20px auto 0;
+    border-radius: 2px;
+    box-shadow: 0 0 12px var(--red-glow);
+  }
+
+  main {
+    width: 100%;
+    max-width: 760px;
+    padding: 40px 24px 80px;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* URL Input */
+  .input-row {
+    display: flex;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px 6px 6px 18px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input-row:focus-within {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px var(--red-glow);
+  }
+  .input-row input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    min-width: 0;
+  }
+  .input-row input::placeholder { color: var(--muted); }
+  .btn-fetch {
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, transform 0.1s;
+    letter-spacing: 0.5px;
+  }
+  .btn-fetch:hover { background: var(--red-dim); }
+  .btn-fetch:active { transform: scale(0.97); }
+  .btn-fetch:disabled { background: #333; color: #555; cursor: not-allowed; }
+
+  /* Video Card */
+  #video-card {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    animation: fadeUp 0.35s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .video-meta {
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    align-items: flex-start;
+  }
+  .thumb-wrap {
+    flex-shrink: 0;
+    width: 130px;
+    height: 78px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1a1a1a;
+  }
+  .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+  .video-info { flex: 1; min-width: 0; }
+  .video-title {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .video-duration {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+  }
+
+  /* Format Grid */
+  .format-section { padding: 0 20px 20px; }
+  .format-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .format-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .fmt-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    color: var(--text);
+  }
+  .fmt-btn:hover { border-color: var(--red); background: rgba(255,45,45,0.06); }
+  .fmt-btn.selected {
+    border-color: var(--red);
+    background: var(--red-glow);
+    box-shadow: 0 0 0 2px var(--red-glow);
+  }
+  .fmt-res {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 22px;
+    letter-spacing: 1px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .fmt-btn.selected .fmt-res { color: var(--red); }
+  .fmt-ext {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  .fmt-size {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  /* Best quality pill */
+  .best-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, rgba(255,45,45,0.1), rgba(255,45,45,0.04));
+    border: 1px solid rgba(255,45,45,0.3);
+    border-radius: 10px;
+    padding: 14px 18px;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 8px;
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .best-btn:hover { border-color: var(--red); background: var(--red-glow); }
+  .best-btn.selected { border-color: var(--red); background: var(--red-glow); }
+  .best-icon { font-size: 20px; }
+  .best-text { text-align: left; }
+  .best-text strong { font-size: 14px; font-weight: 600; display: block; }
+  .best-text span { font-size: 12px; color: var(--muted); }
+
+  .btn-download {
+    width: 100%;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 15px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.15s, transform 0.1s;
+    margin-top: 8px;
+  }
+  .btn-download:hover { background: var(--red-dim); }
+  .btn-download:active { transform: scale(0.99); }
+  .btn-download:disabled { background: #333; color: #555; cursor: not-allowed; }
+
+  /* Progress */
+  #progress-wrap {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    animation: fadeUp 0.3s ease;
+  }
+  .prog-title {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #333;
+    border-top-color: var(--red);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .prog-bar-bg {
+    background: var(--surface);
+    border-radius: 100px;
+    height: 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .prog-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red), #ff6b6b);
+    border-radius: 100px;
+    transition: width 0.4s ease;
+    width: 0%;
+    box-shadow: 0 0 8px var(--red-glow);
+  }
+  .prog-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .prog-pct {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 32px;
+    color: var(--red);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  /* Done state */
+  #done-card {
+    display: none;
+    background: var(--card);
+    border: 1px solid rgba(29,185,84,0.3);
+    border-radius: 16px;
+    padding: 28px 24px;
+    text-align: center;
+    animation: fadeUp 0.3s ease;
+  }
+  .done-icon { font-size: 40px; margin-bottom: 12px; }
+  .done-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; color: var(--success); }
+  .done-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .btn-save {
+    background: var(--success);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px 32px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: opacity 0.15s;
+  }
+  .btn-save:hover { opacity: 0.85; }
+  .btn-new {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 13px 32px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-new:hover { border-color: #444; color: var(--text); }
+
+  /* Error */
+  .error-msg {
+    background: rgba(255,45,45,0.08);
+    border: 1px solid rgba(255,45,45,0.25);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: #ff7070;
+    display: none;
+  }
+
+  footer {
+    position: relative;
+    z-index: 1;
+    color: var(--muted);
+    font-size: 12px;
+    padding-bottom: 32px;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  @media (max-width: 500px) {
+    .video-meta { flex-direction: column; }
+    .thumb-wrap { width: 100%; height: 180px; }
+    .format-grid { grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">YT GRAB</div>
+  <div class="tagline">YouTube Video Downloader</div>
+  <div class="red-line"></div>
+</header>
+
+<main>
+  <!-- URL Input -->
+  <div class="input-row">
+    <input type="text" id="url-input" placeholder="Paste YouTube URL here…" autocomplete="off"/>
+    <button class="btn-fetch" id="btn-fetch" onclick="fetchInfo()">Fetch</button>
+  </div>
+
+  <div class="error-msg" id="error-msg"></div>
+
+  <!-- Video Card -->
+  <div id="video-card">
+    <div class="video-meta">
+      <div class="thumb-wrap"><img id="thumb" src="" alt="thumbnail"/></div>
+      <div class="video-info">
+        <div class="video-title" id="vid-title"></div>
+        <div class="video-duration" id="vid-duration"></div>
+      </div>
+    </div>
+    <div class="format-section">
+      <div class="format-label">Select Quality</div>
+      <button class="best-btn selected" id="best-btn" onclick="selectBest()">
+        <span class="best-icon">⚡</span>
+        <div class="best-text">
+          <strong>Best Available</strong>
+          <span>Highest resolution + audio (recommended)</span>
+        </div>
+      </button>
+      <div class="format-grid" id="format-grid"></div>
+      <button class="btn-download" id="btn-dl" onclick="startDownload()">Download</button>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-wrap">
+    <div class="prog-pct" id="prog-pct">0%</div>
+    <div class="prog-title"><div class="spinner"></div> <span id="prog-label">Preparing download…</span></div>
+    <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-bar"></div></div>
+    <div class="prog-stats">
+      <span id="prog-speed"></span>
+      <span id="prog-eta"></span>
+    </div>
+  </div>
+
+  <!-- Done -->
+  <div id="done-card">
+    <div class="done-icon">✅</div>
+    <div class="done-title">Download Complete!</div>
+    <div class="done-sub">Your video is ready to save.</div>
+    <a class="btn-save" id="btn-save" href="#">Save File</a>
+    <button class="btn-new" onclick="resetAll()">Download Another</button>
+  </div>
+</main>
+
+<footer>
+  For personal use only &nbsp;·&nbsp; Respect YouTube's Terms of Service
+</footer>
+
+<script>
+let selectedFormatId = "bestvideo+bestaudio/best";
+let currentUrl = "";
+let pollInterval = null;
+
+function showError(msg) {
+  const el = document.getElementById("error-msg");
+  el.textContent = "⚠ " + msg;
+  el.style.display = "block";
+}
+function hideError() {
+  document.getElementById("error-msg").style.display = "none";
+}
+
+function formatDuration(s) {
+  if (!s) return "";
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (h) return `${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  return `${m}:${String(sec).padStart(2,"0")}`;
+}
+function formatSize(b) {
+  if (!b) return "";
+  const units = ["B","KB","MB","GB"];
+  let i = 0;
+  while (b >= 1024 && i < units.length - 1) { b /= 1024; i++; }
+  return `${b.toFixed(1)} ${units[i]}`;
+}
+
+async function fetchInfo() {
+  hideError();
+  const url = document.getElementById("url-input").value.trim();
+  if (!url) { showError("Please enter a YouTube URL."); return; }
+  currentUrl = url;
+
+  const btn = document.getElementById("btn-fetch");
+  btn.disabled = true;
+  btn.textContent = "Fetching…";
+  document.getElementById("video-card").style.display = "none";
+  document.getElementById("done-card").style.display = "none";
+  document.getElementById("progress-wrap").style.display = "none";
+
+  try {
+    const res = await fetch("/info", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+
+    document.getElementById("thumb").src = data.thumbnail;
+    document.getElementById("vid-title").textContent = data.title;
+    document.getElementById("vid-duration").textContent = formatDuration(data.duration);
+
+    // Build format grid
+    const grid = document.getElementById("format-grid");
+    grid.innerHTML = "";
+    data.formats.forEach(f => {
+      const d = document.createElement("div");
+      d.className = "fmt-btn";
+      d.dataset.fmtId = f.format_id;
+      d.innerHTML = `
+        <div class="fmt-res">${f.resolution}</div>
+        <div class="fmt-ext">${f.ext}</div>
+        <div class="fmt-size">${formatSize(f.filesize)}</div>
+      `;
+      d.onclick = () => selectFormat(f.format_id, d);
+      grid.appendChild(d);
+    });
+
+    selectedFormatId = "bestvideo+bestaudio/best";
+    document.getElementById("best-btn").classList.add("selected");
+    document.getElementById("video-card").style.display = "block";
+  } catch(e) {
+    showError("Network error. Is the server running?");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Fetch";
+  }
+}
+
+function selectBest() {
+  selectedFormatId = "bestvideo+bestaudio/best";
+  document.getElementById("best-btn").classList.add("selected");
+  document.querySelectorAll(".fmt-btn").forEach(b => b.classList.remove("selected"));
+}
+function selectFormat(id, el) {
+  selectedFormatId = id;
+  document.getElementById("best-btn").classList.remove("selected");
+  document.querySelectorAll(".fmt-btn").forEach(b => b.classList.remove("selected"));
+  el.classList.add("selected");
+}
+
+async function startDownload() {
+  hideError();
+  const btn = document.getElementById("btn-dl");
+  btn.disabled = true;
+  btn.textContent = "Starting…";
+
+  try {
+    const res = await fetch("/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: currentUrl, format_id: selectedFormatId })
+    });
+    const data = await res.json();
+    if (data.error) { showError(data.error); btn.disabled = false; btn.textContent = "Download"; return; }
+
+    const jobId = data.job_id;
+    document.getElementById("video-card").style.display = "none";
+    document.getElementById("progress-wrap").style.display = "block";
+
+    pollInterval = setInterval(() => pollProgress(jobId), 800);
+  } catch(e) {
+    showError("Failed to start download.");
+    btn.disabled = false;
+    btn.textContent = "Download";
+  }
+}
+
+async function pollProgress(jobId) {
+  try {
+    const res = await fetch(`/progress/${jobId}`);
+    const d = await res.json();
+
+    const pct = d.progress || 0;
+    document.getElementById("prog-pct").textContent = pct + "%";
+    document.getElementById("prog-bar").style.width = pct + "%";
+    document.getElementById("prog-speed").textContent = d.speed || "";
+    document.getElementById("prog-eta").textContent = d.eta ? "ETA " + d.eta : "";
+
+    if (d.status === "downloading") {
+      document.getElementById("prog-label").textContent = "Downloading…";
+    } else if (d.status === "finished") {
+      clearInterval(pollInterval);
+      document.getElementById("progress-wrap").style.display = "none";
+      document.getElementById("done-card").style.display = "block";
+      document.getElementById("btn-save").href = `/file/${jobId}`;
+    } else if (d.status === "error") {
+      clearInterval(pollInterval);
+      document.getElementById("progress-wrap").style.display = "none";
+      showError(d.error || "Download failed.");
+      document.getElementById("video-card").style.display = "block";
+      document.getElementById("btn-dl").disabled = false;
+      document.getElementById("btn-dl").textContent = "Download";
+    }
+  } catch(e) {}
+}
+
+function resetAll() {
+  clearInterval(pollInterval);
+  document.getElementById("url-input").value = "";
+  document.getElementById("video-card").style.display = "none";
+  document.getElementById("progress-wrap").style.display = "none";
+  document.getElementById("done-card").style.display = "none";
+  document.getElementById("btn-dl").disabled = false;
+  document.getElementById("btn-dl").textContent = "Download";
+  hideError();
+}
+
+document.getElementById("url-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") fetchInfo();
+});
+</script>
+</body>
+</html>
